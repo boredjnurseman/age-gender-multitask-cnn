@@ -1,0 +1,56 @@
+{
+  "source_filename": "age_gender_submit.ipynb",
+  "source_sha256": "dc420bdfa421e5d10ba60de8b0392e864642a75e29fcb971d8082e590c30b698",
+  "extraction_date": "2026-08-27",
+  "metric_cells": {
+    "model_a": 12,
+    "model_b": 25
+  },
+  "curve_cells": {
+    "model_a_gender_loss": 15,
+    "model_a_gender_accuracy": 16,
+    "model_a_age_loss": 17,
+    "model_a_age_mae": 18,
+    "model_b_gender_loss": 29,
+    "model_b_gender_accuracy": 30,
+    "model_b_age_loss": 31,
+    "model_b_age_mae": 32
+  },
+  "output_mime_types": {
+    "12": [
+      "stream"
+    ],
+    "25": [
+      "stream"
+    ],
+    "15": [
+      "image/png"
+    ],
+    "16": [
+      "image/png"
+    ],
+    "17": [
+      "image/png"
+    ],
+    "18": [
+      "image/png"
+    ],
+    "29": [
+      "image/png"
+    ],
+    "30": [
+      "image/png"
+    ],
+    "31": [
+      "image/png"
+    ],
+    "32": [
+      "image/png"
+    ]
+  },
+  "known_report_discrepancy": {
+    "model_a_report_age_mae": 6.8488,
+    "model_a_report_gender_accuracy": 0.906,
+    "policy": "Display the final notebook's structured checkpoint evaluation."
+  }
+}
