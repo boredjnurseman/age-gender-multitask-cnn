@@ -37,3 +37,6 @@ testpaths = ["tests"]
 markers = [
   "integration: requires TensorFlow, network access or full model files",
 ]
+filterwarnings = [
+  "ignore:__array__ implementation doesn't accept a copy keyword.*:DeprecationWarning:keras.src.backend.tensorflow.core",
+]
