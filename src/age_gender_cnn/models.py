@@ -1,3 +1,5 @@
+"""Keras model builders for the shared-trunk, two-head prediction experiment."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -6,6 +8,7 @@ from .data import build_augmentation_layers
 
 
 def _keras(keras_module: Any | None) -> Any:
+    """Use an injected Keras module in tests, or import the project runtime lazily."""
     if keras_module is not None:
         return keras_module
     import keras
@@ -14,6 +17,7 @@ def _keras(keras_module: Any | None) -> Any:
 
 
 def _residual_block(x: Any, filters: int, dropout: float, name: str, keras: Any) -> Any:
+    """Apply two convolutions, a projected shortcut when needed, pooling, and regularising dropout."""
     layers = keras.layers
     shortcut = x
     residual = layers.Conv2D(filters, 3, padding="same", name=f"{name}_conv_1")(x)
@@ -35,10 +39,11 @@ def _residual_block(x: Any, filters: int, dropout: float, name: str, keras: Any)
 
 
 def build_model_a(*, keras_module: Any | None = None) -> Any:
-    """Build the final custom residual multi-task CNN."""
+    """Build Model A: a task-specific residual CNN with shared features and two outputs."""
     keras = _keras(keras_module)
     layers, regularizers = keras.layers, keras.regularizers
     inputs = keras.Input((128, 128, 3), name="image")
+    # Keep augmentation in the graph: fit() samples variants, while predict() is deterministic.
     x = build_augmentation_layers(keras)(inputs)
     x = layers.Conv2D(32, 3, padding="same", name="stem_conv")(x)
     x = layers.BatchNormalization(name="stem_bn")(x)
@@ -56,6 +61,7 @@ def build_model_a(*, keras_module: Any | None = None) -> Any:
     )(x)
     x = layers.BatchNormalization(name="shared_bn")(x)
     x = layers.Dropout(0.20, name="shared_dropout")(x)
+    # A shared trunk supports both tasks; separate heads preserve task-specific capacity.
     gender = layers.Dense(
         64,
         activation="gelu",
@@ -80,7 +86,7 @@ def build_model_a(*, keras_module: Any | None = None) -> Any:
 def build_model_b(
     *, weights: str | None = "imagenet", keras_module: Any | None = None
 ) -> Any:
-    """Build the final ResNet50V2 transfer-learning model."""
+    """Build Model B with a frozen ResNet50V2 backbone and shared multitask prediction heads."""
     keras = _keras(keras_module)
     layers, regularizers = keras.layers, keras.regularizers
     backbone = keras.applications.ResNet50V2(
@@ -90,6 +96,7 @@ def build_model_b(
     )
     backbone.trainable = False
     inputs = keras.Input((128, 128, 3), name="image")
+    # Apply the same input-space augmentation before ResNet's [-1, 1] preprocessing.
     x = build_augmentation_layers(keras)(inputs)
     x = layers.Rescaling(scale=2.0, offset=-1.0, name="resnet_preprocessing")(x)
     x = backbone(x, training=False)
@@ -124,7 +131,7 @@ def build_model_b(
 
 
 def set_model_b_fine_tuning(model: Any, trainable_tail: int = 30) -> None:
-    """Unfreeze the ResNet tail while keeping Batch Normalisation fixed."""
+    """Unfreeze only the ResNet tail while keeping Batch Normalisation statistics fixed during tuning."""
     import keras
 
     backbone = model.get_layer("resnet50v2")

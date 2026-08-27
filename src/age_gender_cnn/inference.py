@@ -1,3 +1,5 @@
+"""Safe, shared preprocessing and inference helpers for the two public models."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -11,6 +13,8 @@ import numpy as np
 
 @dataclass(frozen=True)
 class ModelSpec:
+    """Describe a cached model archive and the minimum size accepted as valid."""
+
     display_name: str
     filename: str
     drive_file_id: str
@@ -35,6 +39,8 @@ MODEL_SPECS = {
 
 @dataclass(frozen=True)
 class FaceCrop:
+    """Store the model crop together with its detection method and face count."""
+
     rgb: np.ndarray
     method: Literal["largest_detected_face", "centre_crop_fallback"]
     detected_count: int
@@ -42,6 +48,8 @@ class FaceCrop:
 
 @dataclass(frozen=True)
 class ModelPrediction:
+    """Store one model's age estimate and dataset-coded binary-label score for comparison display."""
+
     model_key: str
     age_years: float
     gender_score: float
@@ -50,12 +58,15 @@ class ModelPrediction:
 
 @dataclass(frozen=True)
 class InferenceResult:
+    """Store the original image, shared crop, and predictions from both comparable models."""
+
     original_rgb: np.ndarray
     crop: FaceCrop
     predictions: tuple[ModelPrediction, ...]
 
 
 def _default_detector() -> Any:
+    """Create the bundled OpenCV Haar detector used when no detector is supplied."""
     cascade = Path(cv2.data.haarcascades) / "haarcascade_frontalface_default.xml"
     detector = cv2.CascadeClassifier(str(cascade))
     if detector.empty():
@@ -69,7 +80,7 @@ def detect_and_crop_face(
     detector: Any | None = None,
     padding_fraction: float = 0.30,
 ) -> FaceCrop:
-    """Use the largest detected face or a square centre-crop fallback."""
+    """Select the largest face with modest padding, or use a square centre-crop fallback."""
     if rgb.ndim != 3 or rgb.shape[2] != 3:
         raise ValueError(f"Expected RGB image with three channels, got {rgb.shape}")
     detector = detector or _default_detector()
@@ -104,7 +115,7 @@ def detect_and_crop_face(
 
 
 def prepare_model_batch(crop_rgb: np.ndarray) -> np.ndarray:
-    """Resize an RGB uint8 crop to the models' float32 input contract."""
+    """Resize an RGB crop to 128x128 float32 values in the models' [0, 1] input range."""
     resized = cv2.resize(crop_rgb, (128, 128), interpolation=cv2.INTER_AREA)
     return (resized.astype(np.float32) / 255.0)[None, ...]
 
@@ -119,7 +130,7 @@ def _valid_keras_archive(path: Path, minimum_bytes: int) -> bool:
 def download_models(
     cache_dir: Path, *, downloader: Any | None = None
 ) -> dict[str, Path]:
-    """Download only the two final models and reuse validated cache files."""
+    """Download the two final archives only when cached files fail basic validation."""
     if downloader is None:
         import gdown
 
@@ -143,7 +154,7 @@ def download_models(
 
 
 def register_upload_bytes(upload_bytes: bytes, seen_digests: set[str]) -> str:
-    """Record an upload digest and reject bytes already seen in this session."""
+    """Record a content digest and reject duplicate image bytes within this session."""
     digest = hashlib.sha256(upload_bytes).hexdigest()
     if digest in seen_digests:
         raise ValueError("duplicate upload bytes are not accepted")
@@ -154,7 +165,7 @@ def register_upload_bytes(upload_bytes: bytes, seen_digests: set[str]) -> str:
 def map_named_outputs(
     raw_outputs: Any, *, output_names: list[str]
 ) -> dict[str, float]:
-    """Map Keras prediction arrays by output name and require both tasks."""
+    """Map prediction arrays to named tasks and require both age and label outputs."""
     if isinstance(raw_outputs, Mapping):
         mapped = {
             name: float(np.asarray(value).reshape(-1)[0])
@@ -172,6 +183,7 @@ def map_named_outputs(
 
 
 def _read_rgb(path: Path) -> np.ndarray:
+    """Read one image with OpenCV and convert its channel order from BGR to RGB."""
     bgr = cv2.imread(str(path), cv2.IMREAD_COLOR)
     if bgr is None:
         raise ValueError(f"OpenCV could not decode uploaded image: {path}")
@@ -184,9 +196,10 @@ def predict_photo(
     *,
     detector: Any | None = None,
 ) -> InferenceResult:
-    """Run both supplied models on the same visible face crop."""
+    """Run both supplied models on one detected crop so their predictions are comparable."""
     original = _read_rgb(image_path)
     crop = detect_and_crop_face(original, detector=detector)
+    # Crop once and reuse the same batch so model differences are not preprocessing differences.
     batch = prepare_model_batch(crop.rgb)
     predictions: list[ModelPrediction] = []
     for key in ("model_a", "model_b"):

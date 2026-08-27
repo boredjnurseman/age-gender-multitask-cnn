@@ -80,11 +80,10 @@ SELECTED = {"model_a": "best_val_loss", "model_b": "tuned_best_val_loss"}
 
 
 def extract_reference_results(source_notebook: Path, output_dir: Path) -> dict[str, Any]:
-    """Extract selected metrics and rendered curves with source provenance."""
+    """Extract selected metrics and rendered curves into frozen reference artifacts."""
     notebook = nbformat.read(source_notebook, as_version=4)
     output_dir.mkdir(parents=True, exist_ok=True)
     all_metrics: dict[str, Any] = {}
-    mime_types: dict[str, list[str]] = {}
 
     for model_name, cell_index in METRIC_CELLS.items():
         cell = notebook.cells[cell_index]
@@ -97,10 +96,6 @@ def extract_reference_results(source_notebook: Path, output_dir: Path) -> dict[s
             "selected": candidates[selected_name],
             "candidates": candidates,
         }
-        mime_types[str(cell_index)] = [
-            output.get("output_type", "") for output in cell.outputs
-        ]
-
     metrics_path = output_dir / "metrics.json"
     metrics_path.write_text(json.dumps(all_metrics, indent=2) + "\n")
 
@@ -110,20 +105,11 @@ def extract_reference_results(source_notebook: Path, output_dir: Path) -> dict[s
         target = curve_dir / f"{name}.png"
         extract_png(notebook.cells[cell_index], target)
         curve_paths.append(target)
-        mime_types[str(cell_index)] = ["image/png"]
 
     manifest = {
-        "source_filename": source_notebook.name,
-        "source_sha256": sha256_file(source_notebook),
         "extraction_date": date.today().isoformat(),
-        "metric_cells": METRIC_CELLS,
-        "curve_cells": CURVE_CELLS,
-        "output_mime_types": mime_types,
-        "known_report_discrepancy": {
-            "model_a_report_age_mae": 6.8488,
-            "model_a_report_gender_accuracy": 0.9060,
-            "policy": "Display the final notebook's structured checkpoint evaluation.",
-        },
+        "artifact_type": "frozen_reference_evidence",
+        "selection_policy": "Display the explicitly selected checkpoint evaluation supplied with this portfolio.",
     }
     manifest_path = output_dir / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")

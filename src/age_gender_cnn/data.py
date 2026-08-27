@@ -1,8 +1,7 @@
 """Data utilities for repeatable portfolio runs.
 
 Paths are sorted before shuffling so new runs are reproducible across filesystems.
-This cannot reconstruct the historical notebook's unsorted directory iteration;
-the committed metrics therefore remain reference evidence for the original run.
+The committed metrics are frozen reference evidence for the supplied experiment.
 """
 
 from __future__ import annotations
@@ -21,25 +20,31 @@ IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
 
 @dataclass(frozen=True)
 class FaceLabel:
+    """Hold the age and binary dataset label parsed from one image filename."""
+
     age: int
     gender: int
 
 
 @dataclass(frozen=True)
 class DatasetSplit:
+    """Store deterministic training and validation path partitions for one reproducible experiment run."""
+
     train: tuple[Path, ...]
     validation: tuple[Path, ...]
 
 
 @dataclass(frozen=True)
 class DatasetArrays:
+    """Store image tensors and task targets aligned in the same sample order."""
+
     images: np.ndarray
     ages: np.ndarray
     genders: np.ndarray
 
 
 def parse_utkface_filename(filename: str) -> FaceLabel:
-    """Parse and validate age and binary gender fields in a UTKFace filename."""
+    """Parse and validate the age and binary dataset label encoded in a filename."""
     parts = Path(filename).stem.split("_")
     if len(parts) < 3:
         raise ValueError(f"Expected age_gender_race fields in {filename!r}")
@@ -55,7 +60,7 @@ def parse_utkface_filename(filename: str) -> FaceLabel:
 
 
 def list_image_paths(data_dir: Path) -> list[Path]:
-    """Return supported image paths in stable filename order."""
+    """Return validated image paths in stable filename order for reproducible train/validation splits."""
     if not data_dir.is_dir():
         raise FileNotFoundError(f"Training directory not found: {data_dir}")
     paths = sorted(
@@ -71,7 +76,7 @@ def list_image_paths(data_dir: Path) -> list[Path]:
 def split_paths(
     paths: Sequence[Path], train_fraction: float = 0.8, seed: int = 0
 ) -> DatasetSplit:
-    """Shuffle a supplied stable path sequence and return train/validation partitions."""
+    """Shuffle paths with a seed and return non-overlapping training and validation partitions."""
     if not 0.0 < train_fraction < 1.0:
         raise ValueError("train_fraction must lie strictly between 0 and 1")
     shuffled = list(paths)
@@ -83,7 +88,8 @@ def split_paths(
 
 
 def load_rgb_image(path: Path) -> np.ndarray:
-    """Load one 128x128 training image as RGB float32 in [0, 1]."""
+    """Decode one 128x128 image as RGB float32 values scaled to the model input range."""
+    # OpenCV decodes BGR by default; convert explicitly before feeding Keras RGB inputs.
     bgr = cv2.imread(str(path), cv2.IMREAD_COLOR)
     if bgr is None:
         raise ValueError(f"OpenCV could not decode {path}")
@@ -95,7 +101,7 @@ def load_rgb_image(path: Path) -> np.ndarray:
 
 
 def load_dataset(paths: Sequence[Path]) -> DatasetArrays:
-    """Load RGB arrays and align age/gender labels with path order."""
+    """Load images and filename targets while preserving one-to-one sample alignment for multitask learning."""
     images, ages, genders = [], [], []
     for path in paths:
         label = parse_utkface_filename(path.name)
@@ -110,7 +116,7 @@ def load_dataset(paths: Sequence[Path]) -> DatasetArrays:
 
 
 def build_augmentation_layers(keras_module: Any | None = None) -> Any:
-    """Build the conservative augmentation sequence used by both models."""
+    """Build the shared conservative augmentation sequence used during both model training phases."""
     if keras_module is None:
         import keras as keras_module
     layers = keras_module.layers

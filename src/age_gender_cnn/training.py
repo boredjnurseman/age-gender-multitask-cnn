@@ -1,3 +1,5 @@
+"""Compilation, checkpointing, and optional two-phase training for both models."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -10,6 +12,8 @@ from .models import build_model_a, build_model_b, set_model_b_fine_tuning
 
 @dataclass(frozen=True)
 class CompileConfig:
+    """Record optimizer, age-loss, and task-weight choices for one reproducible multitask training phase."""
+
     learning_rate: float
     age_huber_delta: float
     loss_weights: dict[str, float]
@@ -26,7 +30,7 @@ MODEL_B_COMPILE = CompileConfig(
 def combine_histories(
     *histories: Mapping[str, Sequence[float]],
 ) -> dict[str, list[float]]:
-    """Concatenate series shared by every supplied Keras history mapping."""
+    """Concatenate metrics shared by every phase while preserving their original training order."""
     if not histories:
         return {}
     shared = set.intersection(*(set(history) for history in histories))
@@ -39,14 +43,14 @@ def combine_histories(
 def select_checkpoint(
     records: Mapping[str, dict[str, float]], selected_name: str
 ) -> dict[str, float]:
-    """Return the explicitly selected checkpoint record."""
+    """Return the named checkpoint record after requiring an explicit documented selection policy."""
     if selected_name not in records:
         raise KeyError(f"Checkpoint {selected_name!r} was not evaluated")
     return records[selected_name]
 
 
 def compile_multitask(model: Any, config: CompileConfig) -> None:
-    """Compile a two-output model with the project's explicit task policy."""
+    """Compile both heads with binary cross-entropy, Huber age loss, and configured weights."""
     import keras
 
     model.compile(
@@ -71,7 +75,7 @@ def checkpoint_callbacks(
     reduce_lr_patience: int,
     min_lr: float,
 ) -> list[Any]:
-    """Create phase-specific callbacks beneath an explicit output directory."""
+    """Create checkpoint, early-stopping, and learning-rate callbacks for one monitored model training phase."""
     import keras
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -117,7 +121,7 @@ def evaluate_checkpoints(
     validation_images: Any,
     validation_targets: Mapping[str, Any],
 ) -> dict[str, dict[str, float]]:
-    """Evaluate every named checkpoint against one validation partition."""
+    """Evaluate every named checkpoint on the same validation partition for fair comparison."""
     records: dict[str, dict[str, float]] = {}
     for name, path in paths.items():
         if not path.is_file():
@@ -133,6 +137,7 @@ def evaluate_checkpoints(
 
 
 def _targets(dataset: DatasetArrays) -> dict[str, Any]:
+    """Map aligned dataset arrays to the output names expected by the Keras model."""
     return {"gender_output": dataset.genders, "age_output": dataset.ages}
 
 
@@ -144,7 +149,7 @@ def train_model_a(
     epochs: int = 100,
     batch_size: int = 16,
 ) -> tuple[Any, dict[str, list[float]]]:
-    """Train Model A and return its selected checkpoint and serialisable history."""
+    """Train Model A, restore its balanced checkpoint, and return serialisable training history."""
     import keras
 
     model = build_model_a()
@@ -177,7 +182,7 @@ def train_model_b(
     tuned_epochs: int = 30,
     batch_size: int = 16,
 ) -> tuple[Any, dict[str, list[float]], int]:
-    """Train both Model B phases and return its selected checkpoint and history."""
+    """Train frozen and fine-tuned Model B phases, returning checkpoint, history, and boundary."""
     import keras
 
     model = build_model_b()
@@ -198,6 +203,7 @@ def train_model_b(
         callbacks=base_callbacks,
     )
     set_model_b_fine_tuning(model, trainable_tail=30)
+    # Recompile after changing trainability so the optimizer tracks the new variable set.
     compile_multitask(
         model,
         CompileConfig(1e-5, 1.0, MODEL_B_COMPILE.loss_weights),

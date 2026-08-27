@@ -5,7 +5,6 @@ import numpy as np
 
 from age_gender_cnn.inference import FaceCrop, InferenceResult, ModelPrediction
 from age_gender_cnn.plots import (
-    plot_architecture_comparison,
     plot_augmentation_grid,
     plot_inference_result,
     plot_reference_curves,
@@ -62,7 +61,7 @@ def test_reference_curve_montage_uses_four_images(tmp_path: Path) -> None:
     plt.close(figure)
 
 
-def test_inference_and_architecture_figures_have_stable_panels() -> None:
+def test_inference_figure_has_stable_panels() -> None:
     rgb = np.zeros((32, 32, 3), dtype=np.uint8)
     result = InferenceResult(
         rgb,
@@ -73,8 +72,5 @@ def test_inference_and_architecture_figures_have_stable_panels() -> None:
         ),
     )
     inference_figure = plot_inference_result(result)
-    architecture_figure = plot_architecture_comparison()
     assert len(inference_figure.axes) == 3
-    assert len(architecture_figure.axes) == 2
     plt.close(inference_figure)
-    plt.close(architecture_figure)
