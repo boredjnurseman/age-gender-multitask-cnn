@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "age-gender-multitask-cnn"
+version = "0.1.0"
+description = "A tested comparison of custom and transfer-learning multi-task CNNs."
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+license = { file = "LICENSE" }
+dependencies = [
+  "gdown>=5.2,<6",
+  "matplotlib>=3.8,<4",
+  "numpy>=1.26,<3",
+  "opencv-python-headless>=4.9,<5",
+  "Pillow>=10,<13",
+]
+
+[project.optional-dependencies]
+tensorflow = ["tensorflow>=2.16,<2.22"]
+notebook = ["ipykernel>=6.29,<7", "nbclient>=0.10,<1", "nbformat>=5.10,<6"]
+dev = [
+  "ipykernel>=6.29,<7",
+  "nbclient>=0.10,<1",
+  "nbformat>=5.10,<6",
+  "pytest>=8,<9",
+  "pytest-cov>=5,<8",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-ra -q"
+testpaths = ["tests"]
+markers = [
+  "integration: requires TensorFlow, network access or full model files",
+]
