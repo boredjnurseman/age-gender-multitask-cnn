@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 from pathlib import Path
 from typing import Any, Literal, Mapping
 
@@ -139,6 +140,15 @@ def download_models(
             )
         paths[key] = target
     return paths
+
+
+def register_upload_bytes(upload_bytes: bytes, seen_digests: set[str]) -> str:
+    """Record an upload digest and reject bytes already seen in this session."""
+    digest = hashlib.sha256(upload_bytes).hexdigest()
+    if digest in seen_digests:
+        raise ValueError("duplicate upload bytes are not accepted")
+    seen_digests.add(digest)
+    return digest
 
 
 def map_named_outputs(

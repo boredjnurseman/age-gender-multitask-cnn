@@ -70,7 +70,7 @@ To retrain, set `RUN_TRAINING_PIPELINE = True` and point `DATA_DIR` at an author
 
 The notebook accepts exactly one permitted photograph. In Colab, use the upload prompt. In a local notebook, set `LOCAL_IMAGE_PATH` in the tagged interactive cell. The same image is decoded, passed through the face detector, cropped using the largest detected face or a visible centre-crop fallback, and sent to both models.
 
-The result shows the original image, the crop actually supplied to the models, and the two predictions side by side. The sigmoid value is a dataset-coded binary gender-label score, not calibrated confidence and not an identity judgement. Uploaded files remain in the notebook session; this repository adds no remote storage or analytics. Duplicate upload bytes are rejected by the surrounding application workflow when that workflow is used.
+The result shows the original image, the crop actually supplied to the models, and the two predictions side by side. The sigmoid value is a dataset-coded binary gender-label score, not calibrated confidence and not an identity judgement. Uploaded files remain in the notebook session; this repository adds no remote storage or analytics. The notebook rejects duplicate upload bytes within the session.
 
 The reusable package entry point is `age_gender_cnn.inference.predict_photo`. A Gradio or Streamlit application is a possible future extension, but it is not currently implemented.
 

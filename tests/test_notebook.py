@@ -58,6 +58,24 @@ def test_upload_and_training_cells_are_explicitly_tagged() -> None:
     assert any("training" in cell_tags for cell_tags in tags)
 
 
+def test_upload_cell_shows_consent_warning_and_rejects_duplicate_bytes() -> None:
+    notebook = _notebook()
+    markdown = "\n".join(
+        "".join(cell.source)
+        for cell in notebook.cells
+        if cell.cell_type == "markdown"
+    ).lower()
+    interactive = next(
+        cell
+        for cell in notebook.cells
+        if "interactive" in cell.metadata.get("tags", [])
+    )
+    source = "".join(interactive.source).lower()
+    assert "consent" in markdown
+    assert "register_upload_bytes" in source
+    assert "duplicate upload" in source
+
+
 def test_executed_figures_are_embedded_once_without_tagged_outputs() -> None:
     notebook = _notebook()
     architecture_cell = next(

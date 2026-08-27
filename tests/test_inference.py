@@ -73,6 +73,15 @@ def test_download_models_reuses_valid_cache(
     assert set(paths) == {"model_a", "model_b"}
 
 
+def test_register_upload_bytes_rejects_duplicate_content() -> None:
+    seen: set[str] = set()
+    digest = inference.register_upload_bytes(b"same image bytes", seen)
+
+    assert digest in seen
+    with pytest.raises(ValueError, match="duplicate upload"):
+        inference.register_upload_bytes(b"same image bytes", seen)
+
+
 def test_output_mapping_rejects_missing_task() -> None:
     with pytest.raises(ValueError, match="age_output"):
         map_named_outputs(
